@@ -23,7 +23,7 @@ class EfficientNetConvInitializer(tf.keras.initializers.Initializer):
     def __init__(self):
         super(EfficientNetConvInitializer, self).__init__()
 
-    def __call__(self, shape, dtype=None):
+    def __call__(self, shape, dtype=None, **kwargs):
         dtype = dtype or tf.keras.backend.floatx()
 
         kernel_height, kernel_width, _, out_filters = shape
@@ -53,7 +53,7 @@ class EfficientNetDenseInitializer(tf.keras.initializers.Initializer):
     def __init__(self):
         super(EfficientNetDenseInitializer, self).__init__()
 
-    def __call__(self, shape, dtype=None):
+    def __call__(self, shape, dtype=None, **kwargs):
         dtype = dtype or tf.keras.backend.floatx()
 
         init_range = 1.0 / np.sqrt(shape[1])
@@ -98,7 +98,7 @@ class DropConnect(tf.keras.layers.Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 
-tf.keras.utils.generic_utils.get_custom_objects().update(
+tf.keras.utils.get_custom_objects().update(
     {
         "EfficientNetConvInitializer": EfficientNetConvInitializer,
         "EfficientNetDenseInitializer": EfficientNetDenseInitializer,
