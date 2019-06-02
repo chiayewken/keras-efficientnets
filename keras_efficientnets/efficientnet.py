@@ -598,6 +598,7 @@ def EfficientNetB0(
     dropout_rate=0.2,
     drop_connect_rate=0.0,
     data_format=None,
+    batch_size=None,
 ):
     """
     Builds EfficientNet B0.
@@ -659,6 +660,7 @@ def EfficientNetB0(
         drop_connect_rate=drop_connect_rate,
         data_format=data_format,
         default_size=224,
+        batch_size=batch_size,
     )
 
 
