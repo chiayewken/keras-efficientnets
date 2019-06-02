@@ -17,14 +17,10 @@
   EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks.
   ICML'19, https://arxiv.org/abs/1905.11946
 """
-import math
 from typing import List
 
-from keras import backend as K
-from keras import layers
-from keras.models import Model
-from keras.utils import get_file, get_source_inputs
-
+import math
+import tensorflow as tf
 from keras_applications.imagenet_utils import _obtain_input_shape
 from keras_applications.imagenet_utils import preprocess_input as _preprocess
 
@@ -33,20 +29,22 @@ from keras_efficientnets.custom_objects import EfficientNetConvInitializer
 from keras_efficientnets.custom_objects import EfficientNetDenseInitializer
 from keras_efficientnets.custom_objects import Swish, DropConnect
 
-__all__ = ['EfficientNet',
-           'EfficientNetB0',
-           'EfficientNetB1',
-           'EfficientNetB2',
-           'EfficientNetB3',
-           'EfficientNetB4',
-           'EfficientNetB5',
-           'EfficientNetB6',
-           'EfficientNetB7',
-           'preprocess_input']
+__all__ = [
+    "EfficientNet",
+    "EfficientNetB0",
+    "EfficientNetB1",
+    "EfficientNetB2",
+    "EfficientNetB3",
+    "EfficientNetB4",
+    "EfficientNetB5",
+    "EfficientNetB6",
+    "EfficientNetB7",
+    "preprocess_input",
+]
 
 
 def preprocess_input(x, data_format=None):
-    return _preprocess(x, data_format, mode='torch')
+    return _preprocess(x, data_format, mode="torch")
 
 
 # Obtained from https://github.com/tensorflow/tpu/blob/master/models/official/efficientnet/efficientnet_model.py
@@ -84,13 +82,12 @@ def round_repeats(repeats, depth_coefficient):
 # Obtained from https://github.com/tensorflow/tpu/blob/master/models/official/efficientnet/efficientnet_model.py
 def SEBlock(input_filters, se_ratio, expand_ratio, data_format=None):
     if data_format is None:
-        data_format = K.image_data_format()
+        data_format = tf.keras.backend.image_data_format()
 
-    num_reduced_filters = max(
-        1, int(input_filters * se_ratio))
+    num_reduced_filters = max(1, int(input_filters * se_ratio))
     filters = input_filters * expand_ratio
 
-    if data_format == 'channels_first':
+    if data_format == "channels_first":
         channel_axis = 1
         spatial_dims = [2, 3]
     else:
@@ -99,43 +96,53 @@ def SEBlock(input_filters, se_ratio, expand_ratio, data_format=None):
 
     def block(inputs):
         x = inputs
-        x = layers.Lambda(lambda a: K.mean(a, axis=spatial_dims, keepdims=True))(x)
-        x = layers.Conv2D(
+        x = tf.keras.layers.Lambda(
+            lambda a: tf.keras.backend.mean(a, axis=spatial_dims, keepdims=True)
+        )(x)
+        x = tf.keras.layers.Conv2D(
             num_reduced_filters,
             kernel_size=[1, 1],
             strides=[1, 1],
             kernel_initializer=EfficientNetConvInitializer(),
-            padding='same',
-            use_bias=True)(x)
+            padding="same",
+            use_bias=True,
+        )(x)
         x = Swish()(x)
         # Excite
-        x = layers.Conv2D(
+        x = tf.keras.layers.Conv2D(
             filters,
             kernel_size=[1, 1],
             strides=[1, 1],
             kernel_initializer=EfficientNetConvInitializer(),
-            padding='same',
-            use_bias=True)(x)
-        x = layers.Activation('sigmoid')(x)
-        out = layers.Multiply()([x, inputs])
+            padding="same",
+            use_bias=True,
+        )(x)
+        x = tf.keras.layers.Activation("sigmoid")(x)
+        out = tf.keras.layers.Multiply()([x, inputs])
         return out
 
     return block
 
 
 # Obtained from https://github.com/tensorflow/tpu/blob/master/models/official/efficientnet/efficientnet_model.py
-def MBConvBlock(input_filters, output_filters,
-                kernel_size, strides,
-                expand_ratio, se_ratio,
-                id_skip, drop_connect_rate,
-                batch_norm_momentum=0.99,
-                batch_norm_epsilon=1e-3,
-                data_format=None):
+def MBConvBlock(
+    input_filters,
+    output_filters,
+    kernel_size,
+    strides,
+    expand_ratio,
+    se_ratio,
+    id_skip,
+    drop_connect_rate,
+    batch_norm_momentum=0.99,
+    batch_norm_epsilon=1e-3,
+    data_format=None,
+):
 
     if data_format is None:
-        data_format = K.image_data_format()
+        data_format = tf.keras.backend.image_data_format()
 
-    if data_format == 'channels_first':
+    if data_format == "channels_first":
         channel_axis = 1
         spatial_dims = [2, 3]
     else:
@@ -148,84 +155,86 @@ def MBConvBlock(input_filters, output_filters,
     def block(inputs):
 
         if expand_ratio != 1:
-            x = layers.Conv2D(
+            x = tf.keras.layers.Conv2D(
                 filters,
                 kernel_size=[1, 1],
                 strides=[1, 1],
                 kernel_initializer=EfficientNetConvInitializer(),
-                padding='same',
-                use_bias=False)(inputs)
-            x = layers.BatchNormalization(
+                padding="same",
+                use_bias=False,
+            )(inputs)
+            x = tf.keras.layers.BatchNormalization(
                 axis=channel_axis,
                 momentum=batch_norm_momentum,
-                epsilon=batch_norm_epsilon)(x)
+                epsilon=batch_norm_epsilon,
+            )(x)
             x = Swish()(x)
         else:
             x = inputs
 
-        x = layers.DepthwiseConv2D(
+        x = tf.keras.layers.DepthwiseConv2D(
             [kernel_size, kernel_size],
             strides=strides,
             depthwise_initializer=EfficientNetConvInitializer(),
-            padding='same',
-            use_bias=False)(x)
-        x = layers.BatchNormalization(
-            axis=channel_axis,
-            momentum=batch_norm_momentum,
-            epsilon=batch_norm_epsilon)(x)
+            padding="same",
+            use_bias=False,
+        )(x)
+        x = tf.keras.layers.BatchNormalization(
+            axis=channel_axis, momentum=batch_norm_momentum, epsilon=batch_norm_epsilon
+        )(x)
         x = Swish()(x)
 
         if has_se:
-            x = SEBlock(input_filters, se_ratio, expand_ratio,
-                        data_format)(x)
+            x = SEBlock(input_filters, se_ratio, expand_ratio, data_format)(x)
 
         # output phase
 
-        x = layers.Conv2D(
+        x = tf.keras.layers.Conv2D(
             output_filters,
             kernel_size=[1, 1],
             strides=[1, 1],
             kernel_initializer=EfficientNetConvInitializer(),
-            padding='same',
-            use_bias=False)(x)
-        x = layers.BatchNormalization(
-            axis=channel_axis,
-            momentum=batch_norm_momentum,
-            epsilon=batch_norm_epsilon)(x)
+            padding="same",
+            use_bias=False,
+        )(x)
+        x = tf.keras.layers.BatchNormalization(
+            axis=channel_axis, momentum=batch_norm_momentum, epsilon=batch_norm_epsilon
+        )(x)
 
         if id_skip:
-            if all(s == 1 for s in strides) and (
-                    input_filters == output_filters):
+            if all(s == 1 for s in strides) and (input_filters == output_filters):
 
                 # only apply drop_connect if skip presents.
                 if drop_connect_rate:
                     x = DropConnect(drop_connect_rate)(x)
 
-                x = layers.Add()([x, inputs])
+                x = tf.keras.layers.Add()([x, inputs])
 
         return x
 
     return block
 
 
-def EfficientNet(input_shape,
-                 block_args_list: List[BlockArgs],
-                 width_coefficient: float,
-                 depth_coefficient: float,
-                 include_top=True,
-                 weights=None,
-                 input_tensor=None,
-                 pooling=None,
-                 classes=1000,
-                 dropout_rate=0.,
-                 drop_connect_rate=0.,
-                 batch_norm_momentum=0.99,
-                 batch_norm_epsilon=1e-3,
-                 depth_divisor=8,
-                 min_depth=None,
-                 data_format=None,
-                 default_size=None,
-                 **kwargs):
+def EfficientNet(
+    input_shape,
+    block_args_list: List[BlockArgs],
+    width_coefficient: float,
+    depth_coefficient: float,
+    include_top=True,
+    weights=None,
+    input_tensor=None,
+    pooling=None,
+    classes=1000,
+    dropout_rate=0.0,
+    drop_connect_rate=0.0,
+    batch_norm_momentum=0.99,
+    batch_norm_epsilon=1e-3,
+    depth_divisor=8,
+    min_depth=None,
+    data_format=None,
+    default_size=None,
+    **kwargs
+):
     """
     Builder model for EfficientNets.
 
@@ -253,7 +262,7 @@ def EfficientNet(input_shape,
         weights: `None` (random initialization) or
             `imagenet` (ImageNet weights)
         input_tensor: Optional Keras tensor (i.e. output of
-            `layers.Input()`)
+            `tf.keras.layers.Input()`)
             to use as image input for the model.
         pooling: Optional pooling mode for feature extraction
             when `include_top` is `False`.
@@ -278,9 +287,9 @@ def EfficientNet(input_shape,
         batch_norm_epsilon: Float, default batch normalization
             epsilon. Obtained from the paper.
         depth_divisor: Optional. Used when rounding off the coefficient
-             scaled channels and depth of the layers.
+             scaled channels and depth of the tf.keras.layers.
         min_depth: Optional. Minimum depth value in order to
-            avoid blocks with 0 layers.
+            avoid blocks with 0 tf.keras.layers.
         data_format: "channels_first" or "channels_last". If left
             as None, defaults to the value set in ~/.keras.
         default_size: Specifies the default image size of the model
@@ -293,20 +302,24 @@ def EfficientNet(input_shape,
     # Returns:
         A Keras Model.
     """
-    if not (weights in {'imagenet', None} or os.path.exists(weights)):
-        raise ValueError('The `weights` argument should be either '
-                         '`None` (random initialization), `imagenet` '
-                         '(pre-training on ImageNet), '
-                         'or the path to the weights file to be loaded.')
+    if not (weights in {"imagenet", None} or os.path.exists(weights)):
+        raise ValueError(
+            "The `weights` argument should be either "
+            "`None` (random initialization), `imagenet` "
+            "(pre-training on ImageNet), "
+            "or the path to the weights file to be loaded."
+        )
 
-    if weights == 'imagenet' and include_top and classes != 1000:
-        raise ValueError('If using `weights` as `"imagenet"` with `include_top` '
-                         'as true, `classes` should be 1000')
+    if weights == "imagenet" and include_top and classes != 1000:
+        raise ValueError(
+            'If using `weights` as `"imagenet"` with `include_top` '
+            "as true, `classes` should be 1000"
+        )
 
     if data_format is None:
-        data_format = K.image_data_format()
+        data_format = tf.keras.backend.image_data_format()
 
-    if data_format == 'channels_first':
+    if data_format == "channels_first":
         channel_axis = 1
     else:
         channel_axis = -1
@@ -326,35 +339,36 @@ def EfficientNet(input_shape,
     min_size = int(2 ** stride_count)
 
     # Determine proper input shape and default size.
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=default_size,
-                                      min_size=min_size,
-                                      data_format=data_format,
-                                      require_flatten=include_top,
-                                      weights=weights)
+    input_shape = _obtain_input_shape(
+        input_shape,
+        default_size=default_size,
+        min_size=min_size,
+        data_format=data_format,
+        require_flatten=include_top,
+        weights=weights,
+    )
 
     # Stem part
     if input_tensor is None:
-        inputs = layers.Input(shape=input_shape)
+        inputs = tf.keras.layers.Input(shape=input_shape)
     else:
-        if not K.is_keras_tensor(input_tensor):
-            inputs = layers.Input(tensor=input_tensor, shape=input_shape)
+        if not tf.keras.backend.is_keras_tensor(input_tensor):
+            inputs = tf.keras.layers.Input(tensor=input_tensor, shape=input_shape)
         else:
             inputs = input_tensor
 
     x = inputs
-    x = layers.Conv2D(
-        filters=round_filters(32, width_coefficient,
-                              depth_divisor, min_depth),
+    x = tf.keras.layers.Conv2D(
+        filters=round_filters(32, width_coefficient, depth_divisor, min_depth),
         kernel_size=[3, 3],
         strides=[2, 2],
         kernel_initializer=EfficientNetConvInitializer(),
-        padding='same',
-        use_bias=False)(x)
-    x = layers.BatchNormalization(
-        axis=channel_axis,
-        momentum=batch_norm_momentum,
-        epsilon=batch_norm_epsilon)(x)
+        padding="same",
+        use_bias=False,
+    )(x)
+    x = tf.keras.layers.BatchNormalization(
+        axis=channel_axis, momentum=batch_norm_momentum, epsilon=batch_norm_epsilon
+    )(x)
     x = Swish()(x)
 
     # Blocks part
@@ -362,128 +376,158 @@ def EfficientNet(input_shape,
         assert block_args.num_repeat > 0
 
         # Update block input and output filters based on depth multiplier.
-        block_args.input_filters = round_filters(block_args.input_filters, width_coefficient, depth_divisor, min_depth)
-        block_args.output_filters = round_filters(block_args.output_filters, width_coefficient, depth_divisor, min_depth)
+        block_args.input_filters = round_filters(
+            block_args.input_filters, width_coefficient, depth_divisor, min_depth
+        )
+        block_args.output_filters = round_filters(
+            block_args.output_filters, width_coefficient, depth_divisor, min_depth
+        )
         block_args.num_repeat = round_repeats(block_args.num_repeat, depth_coefficient)
 
         # The first block needs to take care of stride and filter size increase.
-        x = MBConvBlock(block_args.input_filters, block_args.output_filters,
-                        block_args.kernel_size, block_args.strides,
-                        block_args.expand_ratio, block_args.se_ratio,
-                        block_args.identity_skip, drop_connect_rate,
-                        batch_norm_momentum, batch_norm_epsilon, data_format)(x)
+        x = MBConvBlock(
+            block_args.input_filters,
+            block_args.output_filters,
+            block_args.kernel_size,
+            block_args.strides,
+            block_args.expand_ratio,
+            block_args.se_ratio,
+            block_args.identity_skip,
+            drop_connect_rate,
+            batch_norm_momentum,
+            batch_norm_epsilon,
+            data_format,
+        )(x)
 
         if block_args.num_repeat > 1:
             block_args.input_filters = block_args.output_filters
             block_args.strides = [1, 1]
 
         for _ in range(block_args.num_repeat - 1):
-            x = MBConvBlock(block_args.input_filters, block_args.output_filters,
-                            block_args.kernel_size, block_args.strides,
-                            block_args.expand_ratio, block_args.se_ratio,
-                            block_args.identity_skip, drop_connect_rate,
-                            batch_norm_momentum, batch_norm_epsilon, data_format)(x)
+            x = MBConvBlock(
+                block_args.input_filters,
+                block_args.output_filters,
+                block_args.kernel_size,
+                block_args.strides,
+                block_args.expand_ratio,
+                block_args.se_ratio,
+                block_args.identity_skip,
+                drop_connect_rate,
+                batch_norm_momentum,
+                batch_norm_epsilon,
+                data_format,
+            )(x)
 
     # Head part
-    x = layers.Conv2D(
+    x = tf.keras.layers.Conv2D(
         filters=round_filters(1280, width_coefficient, depth_coefficient, min_depth),
         kernel_size=[1, 1],
         strides=[1, 1],
         kernel_initializer=EfficientNetConvInitializer(),
-        padding='same',
-        use_bias=False)(x)
-    x = layers.BatchNormalization(
-        axis=channel_axis,
-        momentum=batch_norm_momentum,
-        epsilon=batch_norm_epsilon)(x)
+        padding="same",
+        use_bias=False,
+    )(x)
+    x = tf.keras.layers.BatchNormalization(
+        axis=channel_axis, momentum=batch_norm_momentum, epsilon=batch_norm_epsilon
+    )(x)
     x = Swish()(x)
 
     if include_top:
-        x = layers.GlobalAveragePooling2D(data_format=data_format)(x)
+        x = tf.keras.layers.GlobalAveragePooling2D(data_format=data_format)(x)
 
         if dropout_rate > 0:
-            x = layers.Dropout(dropout_rate)(x)
+            x = tf.keras.layers.Dropout(dropout_rate)(x)
 
-        x = layers.Dense(classes, kernel_initializer=EfficientNetDenseInitializer())(x)
-        x = layers.Activation('softmax')(x)
+        x = tf.keras.layers.Dense(
+            classes, kernel_initializer=EfficientNetDenseInitializer()
+        )(x)
+        x = tf.keras.layers.Activation("softmax")(x)
 
     else:
-        if pooling == 'avg':
-            x = layers.GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
-            x = layers.GlobalMaxPooling2D()(x)
+        if pooling == "avg":
+            x = tf.keras.layers.GlobalAveragePooling2D()(x)
+        elif pooling == "max":
+            x = tf.keras.layers.GlobalMaxPooling2D()(x)
 
     outputs = x
 
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
     if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
+        inputs = tf.keras.utils.get_source_inputs(input_tensor)
 
-    model = Model(inputs, outputs)
+    model = tf.keras.Model(inputs, outputs)
 
     # Load weights
-    if weights == 'imagenet':
+    if weights == "imagenet":
         if default_size == 224:
             if include_top:
-                weights_path = get_file(
-                    'efficientnet-b0.h5',
+                weights_path = tf.keras.utils.get_file(
+                    "efficientnet-b0.h5",
                     "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b0.h5",
-                    cache_subdir='models')
+                    cache_subdir="models",
+                )
             else:
-                weights_path = get_file(
-                    'efficientnet-b0_notop.h5.h5',
+                weights_path = tf.keras.utils.get_file(
+                    "efficientnet-b0_notop.h5.h5",
                     "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b0_notop.h5",
-                    cache_subdir='models')
+                    cache_subdir="models",
+                )
             model.load_weights(weights_path)
 
         elif default_size == 240:
             if include_top:
-                weights_path = get_file(
-                    'efficientnet-b1.h5',
+                weights_path = tf.keras.utils.get_file(
+                    "efficientnet-b1.h5",
                     "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b1.h5",
-                    cache_subdir='models')
+                    cache_subdir="models",
+                )
             else:
-                weights_path = get_file(
-                    'efficientnet-b1_notop.h5.h5',
+                weights_path = tf.keras.utils.get_file(
+                    "efficientnet-b1_notop.h5.h5",
                     "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b1_notop.h5",
-                    cache_subdir='models')
+                    cache_subdir="models",
+                )
             model.load_weights(weights_path)
 
         elif default_size == 260:
             if include_top:
-                weights_path = get_file(
-                    'efficientnet-b2.h5',
+                weights_path = tf.keras.utils.get_file(
+                    "efficientnet-b2.h5",
                     "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b2.h5",
-                    cache_subdir='models')
+                    cache_subdir="models",
+                )
             else:
-                weights_path = get_file(
-                    'efficientnet-b2_notop.h5.h5',
+                weights_path = tf.keras.utils.get_file(
+                    "efficientnet-b2_notop.h5.h5",
                     "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b2_notop.h5",
-                    cache_subdir='models')
+                    cache_subdir="models",
+                )
             model.load_weights(weights_path)
 
         elif default_size == 300:
             if include_top:
-                weights_path = get_file(
-                    'efficientnet-b3.h5',
+                weights_path = tf.keras.utils.get_file(
+                    "efficientnet-b3.h5",
                     "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b3.h5",
-                    cache_subdir='models')
+                    cache_subdir="models",
+                )
             else:
-                weights_path = get_file(
-                    'efficientnet-b3_notop.h5',
+                weights_path = tf.keras.utils.get_file(
+                    "efficientnet-b3_notop.h5",
                     "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b3_notop.h5",
-                    cache_subdir='models')
+                    cache_subdir="models",
+                )
             model.load_weights(weights_path)
 
         # elif default_size == 380:
         #     if include_top:
-        #         weights_path = get_file(
+        #         weights_path = tf.keras.utils.get_file(
         #             'efficientnet-b4.h5',
         #             "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b4.h5",
         #             cache_subdir='models')
         #     else:
-        #         weights_path = get_file(
+        #         weights_path = tf.keras.utils.get_file(
         #             'efficientnet-b4_notoph5',
         #             "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b4_notop.h5",
         #             cache_subdir='models')
@@ -491,12 +535,12 @@ def EfficientNet(input_shape,
         #
         # elif default_size == 456:
         #     if include_top:
-        #         weights_path = get_file(
+        #         weights_path = tf.keras.utils.get_file(
         #             'efficientnet-b5.h5',
         #             "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b5.h5",
         #             cache_subdir='models')
         #     else:
-        #         weights_path = get_file(
+        #         weights_path = tf.keras.utils.get_file(
         #             'efficientnet-b5_notop.h5',
         #             "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b5_notop.h5",
         #             cache_subdir='models')
@@ -504,12 +548,12 @@ def EfficientNet(input_shape,
         #
         # elif default_size == 528:
         #     if include_top:
-        #         weights_path = get_file(
+        #         weights_path = tf.keras.utils.get_file(
         #             'efficientnet-b6.h5',
         #             "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b6.h5",
         #             cache_subdir='models')
         #     else:
-        #         weights_path = get_file(
+        #         weights_path = tf.keras.utils.get_file(
         #             'efficientnet-b6_notop.h5',
         #             "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b6_notop.h5",
         #             cache_subdir='models')
@@ -517,19 +561,21 @@ def EfficientNet(input_shape,
         #
         # elif default_size == 600:
         #     if include_top:
-        #         weights_path = get_file(
+        #         weights_path = tf.keras.utils.get_file(
         #             'efficientnet-b7.h5',
         #             "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b7.h5",
         #             cache_subdir='models')
         #     else:
-        #         weights_path = get_file(
+        #         weights_path = tf.keras.utils.get_file(
         #             'efficientnet-b7_notop.h5',
         #             "https://github.com/titu1994/keras-efficientnets/releases/download/v0.1/efficientnet-b7_notop.h5",
         #             cache_subdir='models')
         #     model.load_weights(weights_path)
 
         else:
-            raise ValueError('ImageNet weights can only be loaded with EfficientNetB0-7')
+            raise ValueError(
+                "ImageNet weights can only be loaded with EfficientNetB0-7"
+            )
 
     elif weights is not None:
         model.load_weights(weights)
@@ -537,15 +583,17 @@ def EfficientNet(input_shape,
     return model
 
 
-def EfficientNetB0(input_shape=None,
-                   include_top=True,
-                   weights='imagenet',
-                   input_tensor=None,
-                   pooling=None,
-                   classes=1000,
-                   dropout_rate=0.2,
-                   drop_connect_rate=0.,
-                   data_format=None):
+def EfficientNetB0(
+    input_shape=None,
+    include_top=True,
+    weights="imagenet",
+    input_tensor=None,
+    pooling=None,
+    classes=1000,
+    dropout_rate=0.2,
+    drop_connect_rate=0.0,
+    data_format=None,
+):
     """
     Builds EfficientNet B0.
 
@@ -561,7 +609,7 @@ def EfficientNetB0(input_shape=None,
         weights: `None` (random initialization) or
             `imagenet` (ImageNet weights)
         input_tensor: Optional Keras tensor (i.e. output of
-            `layers.Input()`)
+            `tf.keras.layers.Input()`)
             to use as image input for the model.
         pooling: Optional pooling mode for feature extraction
             when `include_top` is `False`.
@@ -592,30 +640,34 @@ def EfficientNetB0(input_shape=None,
     # Returns:
         A Keras Model.
     """
-    return EfficientNet(input_shape,
-                        DEFAULT_BLOCK_LIST,
-                        width_coefficient=1.0,
-                        depth_coefficient=1.0,
-                        include_top=include_top,
-                        weights=weights,
-                        input_tensor=input_tensor,
-                        pooling=pooling,
-                        classes=classes,
-                        dropout_rate=dropout_rate,
-                        drop_connect_rate=drop_connect_rate,
-                        data_format=data_format,
-                        default_size=224)
+    return EfficientNet(
+        input_shape,
+        DEFAULT_BLOCK_LIST,
+        width_coefficient=1.0,
+        depth_coefficient=1.0,
+        include_top=include_top,
+        weights=weights,
+        input_tensor=input_tensor,
+        pooling=pooling,
+        classes=classes,
+        dropout_rate=dropout_rate,
+        drop_connect_rate=drop_connect_rate,
+        data_format=data_format,
+        default_size=224,
+    )
 
 
-def EfficientNetB1(input_shape=None,
-                   include_top=True,
-                   weights='imagenet',
-                   input_tensor=None,
-                   pooling=None,
-                   classes=1000,
-                   dropout_rate=0.2,
-                   drop_connect_rate=0.,
-                   data_format=None):
+def EfficientNetB1(
+    input_shape=None,
+    include_top=True,
+    weights="imagenet",
+    input_tensor=None,
+    pooling=None,
+    classes=1000,
+    dropout_rate=0.2,
+    drop_connect_rate=0.0,
+    data_format=None,
+):
     """
     Builds EfficientNet B1.
 
@@ -631,7 +683,7 @@ def EfficientNetB1(input_shape=None,
         weights: `None` (random initialization) or
             `imagenet` (ImageNet weights)
         input_tensor: Optional Keras tensor (i.e. output of
-            `layers.Input()`)
+            `tf.keras.layers.Input()`)
             to use as image input for the model.
         pooling: Optional pooling mode for feature extraction
             when `include_top` is `False`.
@@ -662,30 +714,34 @@ def EfficientNetB1(input_shape=None,
     # Returns:
         A Keras Model.
     """
-    return EfficientNet(input_shape,
-                        DEFAULT_BLOCK_LIST,
-                        width_coefficient=1.0,
-                        depth_coefficient=1.1,
-                        include_top=include_top,
-                        weights=weights,
-                        input_tensor=input_tensor,
-                        pooling=pooling,
-                        classes=classes,
-                        dropout_rate=dropout_rate,
-                        drop_connect_rate=drop_connect_rate,
-                        data_format=data_format,
-                        default_size=240)
+    return EfficientNet(
+        input_shape,
+        DEFAULT_BLOCK_LIST,
+        width_coefficient=1.0,
+        depth_coefficient=1.1,
+        include_top=include_top,
+        weights=weights,
+        input_tensor=input_tensor,
+        pooling=pooling,
+        classes=classes,
+        dropout_rate=dropout_rate,
+        drop_connect_rate=drop_connect_rate,
+        data_format=data_format,
+        default_size=240,
+    )
 
 
-def EfficientNetB2(input_shape=None,
-                   include_top=True,
-                   weights='imagenet',
-                   input_tensor=None,
-                   pooling=None,
-                   classes=1000,
-                   dropout_rate=0.3,
-                   drop_connect_rate=0.,
-                   data_format=None):
+def EfficientNetB2(
+    input_shape=None,
+    include_top=True,
+    weights="imagenet",
+    input_tensor=None,
+    pooling=None,
+    classes=1000,
+    dropout_rate=0.3,
+    drop_connect_rate=0.0,
+    data_format=None,
+):
     """
     Builds EfficientNet B2.
 
@@ -701,7 +757,7 @@ def EfficientNetB2(input_shape=None,
         weights: `None` (random initialization) or
             `imagenet` (ImageNet weights)
         input_tensor: Optional Keras tensor (i.e. output of
-            `layers.Input()`)
+            `tf.keras.layers.Input()`)
             to use as image input for the model.
         pooling: Optional pooling mode for feature extraction
             when `include_top` is `False`.
@@ -732,30 +788,34 @@ def EfficientNetB2(input_shape=None,
     # Returns:
         A Keras Model.
     """
-    return EfficientNet(input_shape,
-                        DEFAULT_BLOCK_LIST,
-                        width_coefficient=1.1,
-                        depth_coefficient=1.2,
-                        include_top=include_top,
-                        weights=weights,
-                        input_tensor=input_tensor,
-                        pooling=pooling,
-                        classes=classes,
-                        dropout_rate=dropout_rate,
-                        drop_connect_rate=drop_connect_rate,
-                        data_format=data_format,
-                        default_size=260)
+    return EfficientNet(
+        input_shape,
+        DEFAULT_BLOCK_LIST,
+        width_coefficient=1.1,
+        depth_coefficient=1.2,
+        include_top=include_top,
+        weights=weights,
+        input_tensor=input_tensor,
+        pooling=pooling,
+        classes=classes,
+        dropout_rate=dropout_rate,
+        drop_connect_rate=drop_connect_rate,
+        data_format=data_format,
+        default_size=260,
+    )
 
 
-def EfficientNetB3(input_shape=None,
-                   include_top=True,
-                   weights='imagenet',
-                   input_tensor=None,
-                   pooling=None,
-                   classes=1000,
-                   dropout_rate=0.3,
-                   drop_connect_rate=0.,
-                   data_format=None):
+def EfficientNetB3(
+    input_shape=None,
+    include_top=True,
+    weights="imagenet",
+    input_tensor=None,
+    pooling=None,
+    classes=1000,
+    dropout_rate=0.3,
+    drop_connect_rate=0.0,
+    data_format=None,
+):
     """
     Builds EfficientNet B3.
 
@@ -771,7 +831,7 @@ def EfficientNetB3(input_shape=None,
         weights: `None` (random initialization) or
             `imagenet` (ImageNet weights)
         input_tensor: Optional Keras tensor (i.e. output of
-            `layers.Input()`)
+            `tf.keras.layers.Input()`)
             to use as image input for the model.
         pooling: Optional pooling mode for feature extraction
             when `include_top` is `False`.
@@ -802,30 +862,34 @@ def EfficientNetB3(input_shape=None,
     # Returns:
         A Keras Model.
     """
-    return EfficientNet(input_shape,
-                        DEFAULT_BLOCK_LIST,
-                        width_coefficient=1.2,
-                        depth_coefficient=1.4,
-                        include_top=include_top,
-                        weights=weights,
-                        input_tensor=input_tensor,
-                        pooling=pooling,
-                        classes=classes,
-                        dropout_rate=dropout_rate,
-                        drop_connect_rate=drop_connect_rate,
-                        data_format=data_format,
-                        default_size=300)
+    return EfficientNet(
+        input_shape,
+        DEFAULT_BLOCK_LIST,
+        width_coefficient=1.2,
+        depth_coefficient=1.4,
+        include_top=include_top,
+        weights=weights,
+        input_tensor=input_tensor,
+        pooling=pooling,
+        classes=classes,
+        dropout_rate=dropout_rate,
+        drop_connect_rate=drop_connect_rate,
+        data_format=data_format,
+        default_size=300,
+    )
 
 
-def EfficientNetB4(input_shape=None,
-                   include_top=True,
-                   weights=None,
-                   input_tensor=None,
-                   pooling=None,
-                   classes=1000,
-                   dropout_rate=0.4,
-                   drop_connect_rate=0.,
-                   data_format=None):
+def EfficientNetB4(
+    input_shape=None,
+    include_top=True,
+    weights=None,
+    input_tensor=None,
+    pooling=None,
+    classes=1000,
+    dropout_rate=0.4,
+    drop_connect_rate=0.0,
+    data_format=None,
+):
     """
     Builds EfficientNet B4.
 
@@ -841,7 +905,7 @@ def EfficientNetB4(input_shape=None,
         weights: `None` (random initialization) or
             `imagenet` (ImageNet weights)
         input_tensor: Optional Keras tensor (i.e. output of
-            `layers.Input()`)
+            `tf.keras.layers.Input()`)
             to use as image input for the model.
         pooling: Optional pooling mode for feature extraction
             when `include_top` is `False`.
@@ -872,30 +936,34 @@ def EfficientNetB4(input_shape=None,
     # Returns:
         A Keras Model.
     """
-    return EfficientNet(input_shape,
-                        DEFAULT_BLOCK_LIST,
-                        width_coefficient=1.4,
-                        depth_coefficient=1.8,
-                        include_top=include_top,
-                        weights=weights,
-                        input_tensor=input_tensor,
-                        pooling=pooling,
-                        classes=classes,
-                        dropout_rate=dropout_rate,
-                        drop_connect_rate=drop_connect_rate,
-                        data_format=data_format,
-                        default_size=380)
+    return EfficientNet(
+        input_shape,
+        DEFAULT_BLOCK_LIST,
+        width_coefficient=1.4,
+        depth_coefficient=1.8,
+        include_top=include_top,
+        weights=weights,
+        input_tensor=input_tensor,
+        pooling=pooling,
+        classes=classes,
+        dropout_rate=dropout_rate,
+        drop_connect_rate=drop_connect_rate,
+        data_format=data_format,
+        default_size=380,
+    )
 
 
-def EfficientNetB5(input_shape=None,
-                   include_top=True,
-                   weights=None,
-                   input_tensor=None,
-                   pooling=None,
-                   classes=1000,
-                   dropout_rate=0.4,
-                   drop_connect_rate=0.,
-                   data_format=None):
+def EfficientNetB5(
+    input_shape=None,
+    include_top=True,
+    weights=None,
+    input_tensor=None,
+    pooling=None,
+    classes=1000,
+    dropout_rate=0.4,
+    drop_connect_rate=0.0,
+    data_format=None,
+):
     """
     Builds EfficientNet B5.
 
@@ -911,7 +979,7 @@ def EfficientNetB5(input_shape=None,
         weights: `None` (random initialization) or
             `imagenet` (ImageNet weights)
         input_tensor: Optional Keras tensor (i.e. output of
-            `layers.Input()`)
+            `tf.keras.layers.Input()`)
             to use as image input for the model.
         pooling: Optional pooling mode for feature extraction
             when `include_top` is `False`.
@@ -942,30 +1010,34 @@ def EfficientNetB5(input_shape=None,
     # Returns:
         A Keras Model.
     """
-    return EfficientNet(input_shape,
-                        DEFAULT_BLOCK_LIST,
-                        width_coefficient=1.6,
-                        depth_coefficient=2.2,
-                        include_top=include_top,
-                        weights=weights,
-                        input_tensor=input_tensor,
-                        pooling=pooling,
-                        classes=classes,
-                        dropout_rate=dropout_rate,
-                        drop_connect_rate=drop_connect_rate,
-                        data_format=data_format,
-                        default_size=456)
+    return EfficientNet(
+        input_shape,
+        DEFAULT_BLOCK_LIST,
+        width_coefficient=1.6,
+        depth_coefficient=2.2,
+        include_top=include_top,
+        weights=weights,
+        input_tensor=input_tensor,
+        pooling=pooling,
+        classes=classes,
+        dropout_rate=dropout_rate,
+        drop_connect_rate=drop_connect_rate,
+        data_format=data_format,
+        default_size=456,
+    )
 
 
-def EfficientNetB6(input_shape=None,
-                   include_top=True,
-                   weights=None,
-                   input_tensor=None,
-                   pooling=None,
-                   classes=1000,
-                   dropout_rate=0.5,
-                   drop_connect_rate=0.,
-                   data_format=None):
+def EfficientNetB6(
+    input_shape=None,
+    include_top=True,
+    weights=None,
+    input_tensor=None,
+    pooling=None,
+    classes=1000,
+    dropout_rate=0.5,
+    drop_connect_rate=0.0,
+    data_format=None,
+):
     """
     Builds EfficientNet B6.
 
@@ -981,7 +1053,7 @@ def EfficientNetB6(input_shape=None,
         weights: `None` (random initialization) or
             `imagenet` (ImageNet weights)
         input_tensor: Optional Keras tensor (i.e. output of
-            `layers.Input()`)
+            `tf.keras.layers.Input()`)
             to use as image input for the model.
         pooling: Optional pooling mode for feature extraction
             when `include_top` is `False`.
@@ -1012,30 +1084,34 @@ def EfficientNetB6(input_shape=None,
     # Returns:
         A Keras Model.
     """
-    return EfficientNet(input_shape,
-                        DEFAULT_BLOCK_LIST,
-                        width_coefficient=1.8,
-                        depth_coefficient=2.6,
-                        include_top=include_top,
-                        weights=weights,
-                        input_tensor=input_tensor,
-                        pooling=pooling,
-                        classes=classes,
-                        dropout_rate=dropout_rate,
-                        drop_connect_rate=drop_connect_rate,
-                        data_format=data_format,
-                        default_size=528)
+    return EfficientNet(
+        input_shape,
+        DEFAULT_BLOCK_LIST,
+        width_coefficient=1.8,
+        depth_coefficient=2.6,
+        include_top=include_top,
+        weights=weights,
+        input_tensor=input_tensor,
+        pooling=pooling,
+        classes=classes,
+        dropout_rate=dropout_rate,
+        drop_connect_rate=drop_connect_rate,
+        data_format=data_format,
+        default_size=528,
+    )
 
 
-def EfficientNetB7(input_shape=None,
-                   include_top=True,
-                   weights=None,
-                   input_tensor=None,
-                   pooling=None,
-                   classes=1000,
-                   dropout_rate=0.5,
-                   drop_connect_rate=0.,
-                   data_format=None):
+def EfficientNetB7(
+    input_shape=None,
+    include_top=True,
+    weights=None,
+    input_tensor=None,
+    pooling=None,
+    classes=1000,
+    dropout_rate=0.5,
+    drop_connect_rate=0.0,
+    data_format=None,
+):
     """
     Builds EfficientNet B7.
 
@@ -1051,7 +1127,7 @@ def EfficientNetB7(input_shape=None,
         weights: `None` (random initialization) or
             `imagenet` (ImageNet weights)
         input_tensor: Optional Keras tensor (i.e. output of
-            `layers.Input()`)
+            `tf.keras.layers.Input()`)
             to use as image input for the model.
         pooling: Optional pooling mode for feature extraction
             when `include_top` is `False`.
@@ -1082,22 +1158,24 @@ def EfficientNetB7(input_shape=None,
     # Returns:
         A Keras Model.
     """
-    return EfficientNet(input_shape,
-                        DEFAULT_BLOCK_LIST,
-                        width_coefficient=2.0,
-                        depth_coefficient=3.1,
-                        include_top=include_top,
-                        weights=weights,
-                        input_tensor=input_tensor,
-                        pooling=pooling,
-                        classes=classes,
-                        dropout_rate=dropout_rate,
-                        drop_connect_rate=drop_connect_rate,
-                        data_format=data_format,
-                        default_size=600)
+    return EfficientNet(
+        input_shape,
+        DEFAULT_BLOCK_LIST,
+        width_coefficient=2.0,
+        depth_coefficient=3.1,
+        include_top=include_top,
+        weights=weights,
+        input_tensor=input_tensor,
+        pooling=pooling,
+        classes=classes,
+        dropout_rate=dropout_rate,
+        drop_connect_rate=drop_connect_rate,
+        data_format=data_format,
+        default_size=600,
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import os
     from keras.models import load_model
 
@@ -1106,12 +1184,12 @@ if __name__ == '__main__':
 
     model.save("temp.h5")
 
-    if os.path.exists('temp.h5'):
-        model = load_model('temp.h5', compile=False)
+    if os.path.exists("temp.h5"):
+        model = load_model("temp.h5", compile=False)
         model.summary()
 
     else:
         raise FileNotFoundError("Keras model file not found !")
 
-    if os.path.exists('temp.h5'):
-        os.remove('temp.h5')
+    if os.path.exists("temp.h5"):
+        os.remove("temp.h5")
