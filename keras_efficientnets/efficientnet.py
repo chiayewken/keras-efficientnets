@@ -236,7 +236,6 @@ def EfficientNet(
     batch_size=None,
     **kwargs
 ):
-    tf.keras.layers.Input()
     """
     Builder model for EfficientNets.
 
