@@ -33,7 +33,6 @@ from keras_efficientnets.custom_objects import EfficientNetConvInitializer
 from keras_efficientnets.custom_objects import EfficientNetDenseInitializer
 from keras_efficientnets.custom_objects import Swish, DropConnect
 
-
 __all__ = ['EfficientNet',
            'EfficientNetB0',
            'EfficientNetB1',
