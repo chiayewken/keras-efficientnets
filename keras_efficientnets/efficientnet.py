@@ -233,8 +233,10 @@ def EfficientNet(
     min_depth=None,
     data_format=None,
     default_size=None,
+    batch_size=None,
     **kwargs
 ):
+    tf.keras.layers.Input()
     """
     Builder model for EfficientNets.
 
@@ -350,7 +352,7 @@ def EfficientNet(
 
     # Stem part
     if input_tensor is None:
-        inputs = tf.keras.layers.Input(shape=input_shape)
+        inputs = tf.keras.layers.Input(shape=input_shape, batch_size=batch_size)
     else:
         # is_keras_tensor not supported in tf.keras
         # if not tf.keras.backend.is_keras_tensor(input_tensor):
