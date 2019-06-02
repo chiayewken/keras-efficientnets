@@ -356,9 +356,9 @@ def EfficientNet(
         # if not tf.keras.backend.is_keras_tensor(input_tensor):
         #     inputs = tf.keras.layers.Input(tensor=input_tensor, shape=input_shape)
         # else:
-        # inputs = input_tensor
+        #     inputs = input_tensor
 
-        inputs = tf.keras.layers.Input(tensor=input_tensor, shape=input_shape)
+        inputs = input_tensor
 
     x = inputs
     x = tf.keras.layers.Conv2D(
