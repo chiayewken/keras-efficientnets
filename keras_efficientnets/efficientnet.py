@@ -233,12 +233,10 @@ def EfficientNet(
     min_depth=None,
     data_format=None,
     default_size=None,
-    batch_size=None,
     **kwargs
 ):
     """
     Builder model for EfficientNets.
-
     # Arguments:
         input_shape: Optional shape tuple, the input shape
             depends on the configuration, with a minimum
@@ -294,12 +292,10 @@ def EfficientNet(
         data_format: "channels_first" or "channels_last". If left
             as None, defaults to the value set in ~/.keras.
         default_size: Specifies the default image size of the model
-
     # Raises:
         - ValueError: If weights are not in 'imagenet' or None.
         - ValueError: If weights are 'imagenet' and `classes` is
             not 1000.
-
     # Returns:
         A Keras Model.
     """
@@ -351,7 +347,7 @@ def EfficientNet(
 
     # Stem part
     if input_tensor is None:
-        inputs = tf.keras.layers.Input(shape=input_shape, batch_size=batch_size)
+        inputs = tf.keras.layers.Input(shape=input_shape)
     else:
         # is_keras_tensor not supported in tf.keras
         # if not tf.keras.backend.is_keras_tensor(input_tensor):
@@ -375,8 +371,11 @@ def EfficientNet(
     )(x)
     x = Swish()(x)
 
+    num_blocks = sum([block_args.num_repeat for block_args in block_args_list])
+    drop_connect_rate_per_block = drop_connect_rate / float(num_blocks)
+
     # Blocks part
-    for block_args in block_args_list:
+    for block_idx, block_args in enumerate(block_args_list):
         assert block_args.num_repeat > 0
 
         # Update block input and output filters based on depth multiplier.
@@ -397,7 +396,7 @@ def EfficientNet(
             block_args.expand_ratio,
             block_args.se_ratio,
             block_args.identity_skip,
-            drop_connect_rate,
+            drop_connect_rate_per_block * block_idx,
             batch_norm_momentum,
             batch_norm_epsilon,
             data_format,
@@ -416,7 +415,7 @@ def EfficientNet(
                 block_args.expand_ratio,
                 block_args.se_ratio,
                 block_args.identity_skip,
-                drop_connect_rate,
+                drop_connect_rate_per_block * block_idx,
                 batch_norm_momentum,
                 batch_norm_epsilon,
                 data_format,
@@ -597,11 +596,9 @@ def EfficientNetB0(
     dropout_rate=0.2,
     drop_connect_rate=0.0,
     data_format=None,
-    batch_size=None,
 ):
     """
     Builds EfficientNet B0.
-
     # Arguments:
         input_shape: Optional shape tuple, the input shape
             depends on the configuration, with a minimum
@@ -636,12 +633,10 @@ def EfficientNetB0(
             connections.
         data_format: "channels_first" or "channels_last". If left
             as None, defaults to the value set in ~/.keras.
-
     # Raises:
         - ValueError: If weights are not in 'imagenet' or None.
         - ValueError: If weights are 'imagenet' and `classes` is
             not 1000.
-
     # Returns:
         A Keras Model.
     """
@@ -659,7 +654,6 @@ def EfficientNetB0(
         drop_connect_rate=drop_connect_rate,
         data_format=data_format,
         default_size=224,
-        batch_size=batch_size,
     )
 
 
@@ -676,7 +670,6 @@ def EfficientNetB1(
 ):
     """
     Builds EfficientNet B1.
-
     # Arguments:
         input_shape: Optional shape tuple, the input shape
             depends on the configuration, with a minimum
@@ -711,12 +704,10 @@ def EfficientNetB1(
             connections.
         data_format: "channels_first" or "channels_last". If left
             as None, defaults to the value set in ~/.keras.
-
     # Raises:
         - ValueError: If weights are not in 'imagenet' or None.
         - ValueError: If weights are 'imagenet' and `classes` is
             not 1000.
-
     # Returns:
         A Keras Model.
     """
@@ -750,7 +741,6 @@ def EfficientNetB2(
 ):
     """
     Builds EfficientNet B2.
-
     # Arguments:
         input_shape: Optional shape tuple, the input shape
             depends on the configuration, with a minimum
@@ -785,12 +775,10 @@ def EfficientNetB2(
             connections.
         data_format: "channels_first" or "channels_last". If left
             as None, defaults to the value set in ~/.keras.
-
     # Raises:
         - ValueError: If weights are not in 'imagenet' or None.
         - ValueError: If weights are 'imagenet' and `classes` is
             not 1000.
-
     # Returns:
         A Keras Model.
     """
@@ -824,7 +812,6 @@ def EfficientNetB3(
 ):
     """
     Builds EfficientNet B3.
-
     # Arguments:
         input_shape: Optional shape tuple, the input shape
             depends on the configuration, with a minimum
@@ -859,12 +846,10 @@ def EfficientNetB3(
             connections.
         data_format: "channels_first" or "channels_last". If left
             as None, defaults to the value set in ~/.keras.
-
     # Raises:
         - ValueError: If weights are not in 'imagenet' or None.
         - ValueError: If weights are 'imagenet' and `classes` is
             not 1000.
-
     # Returns:
         A Keras Model.
     """
@@ -898,7 +883,6 @@ def EfficientNetB4(
 ):
     """
     Builds EfficientNet B4.
-
     # Arguments:
         input_shape: Optional shape tuple, the input shape
             depends on the configuration, with a minimum
@@ -933,12 +917,10 @@ def EfficientNetB4(
             connections.
         data_format: "channels_first" or "channels_last". If left
             as None, defaults to the value set in ~/.keras.
-
     # Raises:
         - ValueError: If weights are not in 'imagenet' or None.
         - ValueError: If weights are 'imagenet' and `classes` is
             not 1000.
-
     # Returns:
         A Keras Model.
     """
@@ -972,7 +954,6 @@ def EfficientNetB5(
 ):
     """
     Builds EfficientNet B5.
-
     # Arguments:
         input_shape: Optional shape tuple, the input shape
             depends on the configuration, with a minimum
@@ -1007,12 +988,10 @@ def EfficientNetB5(
             connections.
         data_format: "channels_first" or "channels_last". If left
             as None, defaults to the value set in ~/.keras.
-
     # Raises:
         - ValueError: If weights are not in 'imagenet' or None.
         - ValueError: If weights are 'imagenet' and `classes` is
             not 1000.
-
     # Returns:
         A Keras Model.
     """
@@ -1046,7 +1025,6 @@ def EfficientNetB6(
 ):
     """
     Builds EfficientNet B6.
-
     # Arguments:
         input_shape: Optional shape tuple, the input shape
             depends on the configuration, with a minimum
@@ -1081,12 +1059,10 @@ def EfficientNetB6(
             connections.
         data_format: "channels_first" or "channels_last". If left
             as None, defaults to the value set in ~/.keras.
-
     # Raises:
         - ValueError: If weights are not in 'imagenet' or None.
         - ValueError: If weights are 'imagenet' and `classes` is
             not 1000.
-
     # Returns:
         A Keras Model.
     """
@@ -1120,7 +1096,6 @@ def EfficientNetB7(
 ):
     """
     Builds EfficientNet B7.
-
     # Arguments:
         input_shape: Optional shape tuple, the input shape
             depends on the configuration, with a minimum
@@ -1155,12 +1130,10 @@ def EfficientNetB7(
             connections.
         data_format: "channels_first" or "channels_last". If left
             as None, defaults to the value set in ~/.keras.
-
     # Raises:
         - ValueError: If weights are not in 'imagenet' or None.
         - ValueError: If weights are 'imagenet' and `classes` is
             not 1000.
-
     # Returns:
         A Keras Model.
     """
